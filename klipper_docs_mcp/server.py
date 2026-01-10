@@ -16,6 +16,11 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from mcp.types import Tool
 
+try:
+    from . import __version__
+except ImportError:
+    __version__ = "0.0.0-dev"
+
 # Constants
 KLIPPER_REPO_URL = "https://github.com/Klipper3d/klipper.git"
 DOCS_DIR = Path(os.getenv("KLIPPER_DOCS_PATH", "./docs")).resolve()
@@ -456,7 +461,7 @@ async def main():
             write_stream,
             InitializationOptions(
                 server_name="klipper-docs-server",
-                server_version="0.1.0",
+                server_version=__version__,
                 capabilities=app.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={},
