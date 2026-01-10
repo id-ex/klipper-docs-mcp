@@ -22,12 +22,21 @@ except ImportError:
     __version__ = "0.0.0-dev"
 
 # Constants
-KLIPPER_REPO_URL = "https://github.com/Klipper3d/klipper.git"
+REPOSITORIES = {
+    "klipper": {
+        "url": "https://github.com/Klipper3d/klipper.git",
+        "sparse_path": "docs/",
+    },
+    "moonraker": {
+        "url": "https://github.com/Arksine/moonraker.git",
+        "sparse_path": "docs/",
+    },
+}
 DOCS_DIR = Path(os.getenv("KLIPPER_DOCS_PATH", "./docs")).resolve()
 MAX_FILE_CHARS = 10000
 SNIPPET_LENGTH = 200
 MAX_SEARCH_RESULTS = 7
-SYNC_DESCRIPTION = "Sync documentation with remote repository (git pull --depth 1)"
+SYNC_DESCRIPTION = "Sync documentation (Klipper, Moonraker) with remote repositories"
 
 app = Server("klipper-docs-server")
 _docs_outdated = False
@@ -318,133 +327,128 @@ async def list_docs_map() -> list[types.TextContent]:
 
 
 async def sync_docs() -> list[types.TextContent]:
-    """Sync documentation with remote repository."""
+    """Sync documentation with remote repositories."""
     global _docs_outdated
 
     output_lines = []
-    error_lines = []
+    
+    if not DOCS_DIR.exists():
+        DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
-    try:
-        # Check if docs directory exists and is a git repo
-        if not DOCS_DIR.exists():
-            output_lines.append(f"Documentation directory not found at: {DOCS_DIR}")
-            output_lines.append("Initializing sparse checkout...")
+    for name, config in REPOSITORIES.items():
+        repo_dir = DOCS_DIR / name
+        url = config["url"]
+        sparse_path = config["sparse_path"]
 
-            # Create parent directory if needed
-            DOCS_DIR.parent.mkdir(parents=True, exist_ok=True)
+        output_lines.append(f"\n--- Syncing {name} ---")
 
-            # Initialize sparse checkout
-            result = subprocess.run(
-                [
-                    "git", "clone", "--depth=1", "--no-checkout",
-                    KLIPPER_REPO_URL, str(DOCS_DIR)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
+        try:
+            if not repo_dir.exists():
+                output_lines.append(f"Cloning {name}...")
+                
+                # Clone with no checkout initially if sparse is needed
+                clone_cmd = ["git", "clone", "--depth=1", "--no-checkout", url, str(repo_dir)]
+                if not sparse_path:
+                    # Full checkout if no sparse path
+                     clone_cmd = ["git", "clone", "--depth=1", url, str(repo_dir)]
 
-            if result.returncode != 0:
-                return [types.TextContent(type="text", text=f"Clone failed:\n{result.stderr}")]
+                result = subprocess.run(
+                    clone_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
 
-            # Configure sparse checkout
-            subprocess.run(["git", "config", "core.sparseCheckout", "true"],
-                          cwd=DOCS_DIR, capture_output=True)
-            subprocess.run(["git", "sparse-checkout", "set", "docs/"],
-                          cwd=DOCS_DIR, capture_output=True)
-            subprocess.run(["git", "checkout"], cwd=DOCS_DIR, capture_output=True)
+                if result.returncode != 0:
+                    output_lines.append(f"Clone failed for {name}:\n{result.stderr}")
+                    continue
 
-            # Move docs/* to parent directory
-            docs_subdir = DOCS_DIR / "docs"
-            if docs_subdir.exists():
-                for item in docs_subdir.iterdir():
-                    dest = DOCS_DIR / item.name
-                    if dest.exists():
-                        subprocess.run(["rm", "-rf", str(dest)], capture_output=True)
-                    subprocess.run(["mv", str(item), str(DOCS_DIR)], capture_output=True)
-                subprocess.run(["rm", "-rf", str(docs_subdir)], capture_output=True)
+                if sparse_path:
+                    # Configure sparse checkout
+                    subprocess.run(["git", "config", "core.sparseCheckout", "true"], cwd=repo_dir, capture_output=True)
+                    subprocess.run(["git", "sparse-checkout", "set", sparse_path], cwd=repo_dir, capture_output=True)
+                    subprocess.run(["git", "checkout"], cwd=repo_dir, capture_output=True)
+                
+                output_lines.append(f"Successfully cloned {name}.")
 
-            output_lines.append("Documentation initialized successfully.")
-        else:
-            # Existing repo - do a pull
-            output_lines.append("Syncing with remote repository...")
+            else:
+                output_lines.append(f"Updating {name}...")
+                result = subprocess.run(
+                    ["git", "pull", "--depth=1"],
+                    cwd=repo_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if result.returncode != 0:
+                     output_lines.append(f"Update failed for {name}:\n{result.stderr}")
+                else:
+                     output_lines.append(result.stdout.strip() or "Already up to date.")
 
-            result = subprocess.run(
-                ["git", "pull", "--depth=1"],
-                cwd=DOCS_DIR,
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
+        except Exception as e:
+            output_lines.append(f"Error syncing {name}: {e}")
 
-            if result.returncode != 0:
-                return [types.TextContent(type="text", text=f"Pull failed:\n{result.stderr}")]
+    # Check status after sync
+    _docs_outdated = await check_if_outdated()
+    if not _docs_outdated:
+        output_lines.append("\nAll documentation repositories are up to date.")
 
-            output_lines.append(result.stdout or "Already up to date.")
-
-        # Check status after sync
-        _docs_outdated = await check_if_outdated()
-        if not _docs_outdated:
-            output_lines.append("\nDocumentation is up to date.")
-
-        return [types.TextContent(type="text", text="\n".join(output_lines))]
-
-    except subprocess.TimeoutExpired:
-        return [types.TextContent(type="text", text="Operation timed out (5 minutes).")]
-    except Exception as e:
-        return [types.TextContent(type="text", text=f"Sync error: {e}")]
+    return [types.TextContent(type="text", text="\n".join(output_lines))]
 
 
 async def check_if_outdated() -> bool:
-    """Check if local documentation is outdated compared to remote.
-
-    Returns True if updates are available.
-    """
+    """Check if any local documentation repo is outdated compared to remote."""
     global _docs_outdated
-
+    
     if not DOCS_DIR.exists():
         return False
 
-    try:
-        # Fetch without downloading data
-        subprocess.run(
-            ["git", "fetch"],
-            cwd=DOCS_DIR,
-            capture_output=True,
-            timeout=60,
-        )
+    any_outdated = False
 
-        # Compare HEAD with remote
-        local_rev = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=DOCS_DIR,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        remote_rev = subprocess.run(
-            ["git", "rev-parse", "@{u}"],
-            cwd=DOCS_DIR,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+    for name in REPOSITORIES:
+        repo_dir = DOCS_DIR / name
+        if not repo_dir.exists():
+            continue
 
-        if local_rev.returncode == 0 and remote_rev.returncode == 0:
-            local_hash = local_rev.stdout.strip()
-            remote_hash = remote_rev.stdout.strip()
-            is_outdated = local_hash != remote_hash
+        try:
+            # Fetch without downloading data
+            subprocess.run(
+                ["git", "fetch"],
+                cwd=repo_dir,
+                capture_output=True,
+                timeout=60,
+            )
 
-            if is_outdated:
-                import sys
-                print(f"\n[INFO] Documentation update available. Run sync_docs() to update.", file=sys.stderr)
+            # Compare HEAD with remote
+            local_rev = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            remote_rev = subprocess.run(
+                ["git", "rev-parse", "@{u}"],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
 
-            return is_outdated
+            if local_rev.returncode == 0 and remote_rev.returncode == 0:
+                local_hash = local_rev.stdout.strip()
+                remote_hash = remote_rev.stdout.strip()
+                if local_hash != remote_hash:
+                    any_outdated = True
+                    # Don't break, check others or just return True immediately?
+                    # Let's verify all silently but return True if any found.
+                    import sys
+                    print(f"\n[INFO] Update available for {name}. Run sync_docs() to update.", file=sys.stderr)
 
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
 
-    return False
+    return any_outdated
 
 
 async def main():
