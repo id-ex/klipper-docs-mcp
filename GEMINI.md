@@ -10,36 +10,32 @@ This project serves as a Model Context Protocol (MCP) server that provides local
 *   **Security:** Implements path traversal protection for file access.
 
 ## Architecture
-*   **Language:** Python 3.10+
-*   **Core Dependency:** `mcp` SDK
-*   **Entry Point:** `klipper_docs_mcp/server.py`
+*   **Language:** Node.js (TypeScript)
+*   **Core Dependency:** `@modelcontextprotocol/sdk`
+*   **Entry Point:** `src/index.ts` (compiled to `dist/index.js`)
 *   **Data Source:** Local `docs/` directory (populated via git sparse checkout).
 
 ## Building and Running
 
 ### Prerequisites
-*   Python 3.10 or higher
+*   Node.js 18+
 *   Git
 
 ### Installation
 1.  **Install dependencies:**
     ```bash
-    pip install -r requirements.txt
+    npm install
     ```
-    Or using `uv`:
+2.  **Build:**
     ```bash
-    uv pip install -e .
+    npm run build
     ```
 
 ### Execution
-*   **Using the wrapper script:**
-    ```bash
-    ./run_server.sh
-    ```
-*   **Direct Python module execution:**
+*   **Direct execution:**
     ```bash
     export KLIPPER_DOCS_PATH=./docs
-    python -m klipper_docs_mcp.server
+    npm start
     ```
 
 ### Client Configuration
@@ -48,8 +44,8 @@ To use this with an MCP client (like Claude Desktop), configure it as follows:
 {
   "mcpServers": {
     "klipper-docs": {
-      "command": "python",
-      "args": ["-m", "klipper_docs_mcp.server"],
+      "command": "node",
+      "args": ["/path/to/klipper-docs-mcp/dist/index.js"],
       "env": {
         "KLIPPER_DOCS_PATH": "/path/to/docs"
       }
@@ -61,20 +57,17 @@ To use this with an MCP client (like Claude Desktop), configure it as follows:
 ## Development Conventions
 
 ### Testing
-*   **Framework:** `pytest`
+*   **Framework:** `vitest`
 *   **Run tests:**
     ```bash
-    pytest
+    npm test
     ```
 
 ### Code Structure
-*   `klipper_docs_mcp/server.py`: Main server implementation containing tool definitions:
-    *   `search_docs(query)`: Search Klipper documentation.
-    *   `read_doc(path, offset=0, limit=10000)`: Read a documentation file with pagination support.
-    *   `list_docs_map()`: List documentation structure.
-    *   `sync_docs()`: Sync with Klipper GitHub repository.
+*   `src/index.ts`: Main server implementation containing tool definitions.
+*   `src/services/`: Service logic (Search, Git, Storage).
 *   `docs/`: Directory containing the markdown documentation files.
-*   `tests/`: Contains unit tests (`test_server.py`).
+*   `tests/`: Contains unit tests.
 
 ### Environment Variables
 *   `KLIPPER_DOCS_PATH`: Path to the directory containing documentation files (default: `./docs`).

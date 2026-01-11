@@ -1,116 +1,76 @@
-# Klipper Docs MCP Server
+# Klipper Docs MCP Server (Node.js)
 
-Этот MCP сервер предоставляет агентам искусственного интеллекта (например, Claude) прямой локальный доступ к официальной документации прошивки Klipper 3D.
+An MCP server that provides local access to Klipper 3D printer documentation, optimized for low-resource environments.
 
-Сервер спроектирован для работы в условиях ограниченных ресурсов (например, на Raspberry Pi рядом с принтером), но отлично работает и на обычных десктопах.
+## Features
+*   **Local Search:** Fast search through documentation using filenames, headings, and content.
+*   **Git Sync:** Keeps documentation up-to-date with official repositories (Klipper & Moonraker).
+*   **Low Resource Usage:** Efficient streaming and reading suitable for Raspberry Pi.
 
-## Возможности
+## Installation
 
-*   🔍 **Локальный поиск:** Поиск по документации без внешних API.
-*   📖 **Чтение файлов:** Умное чтение Markdown файлов с пагинацией для экономии контекста.
-*   ⚡ **Эффективность:** Минимальное потребление памяти и CPU.
-*   🔄 **Авто-обновление:** Встроенный инструмент для синхронизации с официальным репозиторием Klipper.
+### From Source
+1.  Clone the repository.
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Build the project:
+    ```bash
+    npm run build
+    ```
 
-## Установка
-
-### Вариант 1: Использование `uv` (Рекомендуется)
-
-Самый быстрый способ запустить сервер без клонирования репозитория:
-
+### From npm (Coming soon)
 ```bash
-uvx --from git+https://github.com/your-username/klipper-docs-mcp klipper-docs-mcp
+npx klipper-docs-mcp
 ```
 
-### Вариант 2: Установка через pip
+## Usage
+
+### Running the Server
+You can run the server directly:
 
 ```bash
-pip install git+https://github.com/your-username/klipper-docs-mcp.git
+npm start
 ```
 
-### Вариант 3: Для разработчиков (из исходного кода)
+Or using the built executable:
 
 ```bash
-git clone https://github.com/your-username/klipper-docs-mcp.git
-cd klipper-docs-mcp
-pip install -e .
+./dist/index.js
 ```
 
-## Настройка
+### Configuration
+The server uses the `KLIPPER_DOCS_PATH` environment variable to locate documentation.
+Default: `./docs`
 
-Сервер использует переменную окружения `KLIPPER_DOCS_PATH` для определения места хранения документации.
-По умолчанию это папка `./docs` в рабочей директории.
+```bash
+export KLIPPER_DOCS_PATH=/path/to/docs
+npm start
+```
 
-## Подключение к агентам
-
-### 1. Claude Desktop
-
-Чтобы добавить сервер в приложение Claude Desktop, отредактируйте файл конфигурации:
-
-*   **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-*   **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-Добавьте следующую запись в секцию `mcpServers`.
-
-**Если вы установили через `uv`:**
+### Claude Desktop Configuration
+Add this to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "klipper-docs": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/your-username/klipper-docs-mcp",
-        "klipper-docs-mcp"
-      ],
+      "command": "node",
+      "args": ["/path/to/klipper-docs-mcp/dist/index.js"],
       "env": {
-        "KLIPPER_DOCS_PATH": "/путь/к/папке/docs"
+        "KLIPPER_DOCS_PATH": "/path/to/docs"
       }
     }
   }
 }
 ```
 
-**Если вы клонировали репозиторий (для локальной разработки):**
+## Development
 
-```json
-{
-  "mcpServers": {
-    "klipper-docs": {
-      "command": "python",
-      "args": ["-m", "klipper_docs_mcp.server"],
-      "cwd": "/полный/путь/к/папке/repo",
-      "env": {
-        "KLIPPER_DOCS_PATH": "/полный/путь/к/папке/repo/docs"
-      }
-    }
-  }
-}
-```
+*   **Run in dev mode:** `npm run dev`
+*   **Run tests:** `npm test`
+*   **Build:** `npm run build`
 
-### 2. Другие MCP клиенты
-
-Любой клиент, поддерживающий Model Context Protocol, может запустить сервер, используя команду:
-
-```bash
-klipper-docs-mcp
-```
-
-Или через python модуль:
-
-```bash
-python -m klipper_docs_mcp.server
-```
-
-## Доступные инструменты
-
-Агент получит доступ к следующим инструментам:
-
-*   `search_docs(query)`: Поиск по документации. Возвращает релевантные фрагменты.
-*   `read_doc(path, offset, limit)`: Чтение конкретного файла документации.
-*   `list_docs_map()`: Получение структуры всех файлов документации (дерево файлов).
-*   `sync_docs()`: Скачивание или обновление документации с GitHub Klipper.
-
-## Лицензия
-
+## License
 MIT
