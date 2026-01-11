@@ -9,6 +9,15 @@ An MCP server that provides local access to Klipper 3D printer documentation, op
 
 ## Installation
 
+### Quick Start (npx)
+You can run the server directly without installation using `npx`:
+
+```bash
+npx klipper-docs-mcp
+```
+
+This command will download and run the latest version of the server. By default, it will look for documentation in the `./docs` directory relative to where you run the command. You can override this with the `KLIPPER_DOCS_PATH` environment variable.
+
 ### From Source
 1.  Clone the repository.
 2.  Install dependencies:
@@ -19,11 +28,6 @@ An MCP server that provides local access to Klipper 3D printer documentation, op
     ```bash
     npm run build
     ```
-
-### From npm (Coming soon)
-```bash
-npx klipper-docs-mcp
-```
 
 ## Usage
 
