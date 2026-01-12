@@ -52,6 +52,22 @@ export KLIPPER_DOCS_PATH=/path/to/docs
 npm start
 ```
 
+## CLI Configuration (One-Liner)
+
+### Claude Code
+Add the server to your current project configuration in one command:
+
+```bash
+claude mcp add klipper-docs -- npx -y klipper-docs-mcp
+```
+
+### Gemini CLI
+Add the server extension:
+
+```bash
+gemini mcp add klipper-docs -- npx -y klipper-docs-mcp
+```
+
 ### Claude Desktop Configuration
 Add this to your `claude_desktop_config.json`:
 
