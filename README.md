@@ -1,11 +1,10 @@
-# Klipper Docs MCP Server (Node.js)
+# Klipper Docs MCP Server
 
 An MCP server that provides local access to Klipper 3D printer documentation, optimized for low-resource environments.
 
 ## Features
 *   **Local Search:** Fast search through documentation using filenames, headings, and content.
 *   **Git Sync:** Keeps documentation up-to-date with official repositories (Klipper & Moonraker).
-*   **Low Resource Usage:** Efficient streaming and reading suitable for Raspberry Pi.
 
 ## Installation
 
@@ -69,12 +68,6 @@ Add this to your `claude_desktop_config.json`:
   }
 }
 ```
-
-## Development
-
-*   **Run in dev mode:** `npm run dev`
-*   **Run tests:** `npm test`
-*   **Build:** `npm run build`
 
 ## License
 MIT
